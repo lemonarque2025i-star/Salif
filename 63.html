@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMOB PRO V16 - IA STATS FINAL</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #0f172a; --bg-card: #1e293b; --primary: #facc15;
+            --accent-live: #ef4444; --accent-prono: #10b981; --text-light: #cbd5e1;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-dark); color: white; margin: 0; padding-bottom: 140px; }
+        header { background: #020617; padding: 15px; text-align: center; color: var(--primary); border-bottom: 2px solid var(--primary); position: sticky; top: 0; z-index: 100; }
+        
+        .navbar { display: flex; background: #1e293b; padding: 10px; gap: 8px; justify-content: flex-start; align-items: center; overflow-x: auto; white-space: nowrap; }
+        .navbar button, .navbar input, .navbar select { padding: 10px 12px; border-radius: 5px; border: none; background: #0f172a; color: white; cursor: pointer; font-size: 12px; flex-shrink: 0; }
+        
+        .filter-bar { display: flex; background: #020617; padding: 10px; gap: 8px; overflow-x: auto; border-bottom: 1px solid #334155; position: sticky; top: 60px; z-index: 90; }
+        .filter-bar button { flex: 1; min-width: 100px; padding: 10px; border-radius: 4px; border: none; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; transition: 0.3s; }
+
+        #content { padding: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+        .match-card { background: var(--bg-card); padding: 15px; border-radius: 12px; border-left: 4px solid var(--primary); position: relative; }
+        .match-status { font-size: 11px; font-weight: bold; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .btn-add-coupon { width: 100%; margin-top: 10px; padding: 8px; background: var(--primary); color: black; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+
+        .live-dot { height: 8px; width: 8px; background-color: var(--accent-live); border-radius: 50%; display: inline-block; margin-right: 5px; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        #coupon-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #020617; padding: 20px; border-top: 3px solid var(--primary); display: none; justify-content: space-between; align-items: center; z-index: 1000; }
+        .btn-lab { background: var(--primary); color: black; padding: 12px 25px; border-radius: 8px; font-weight: bold; border:none; cursor:pointer;}
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; overflow-y: auto; }
+        .modal-content { padding: 20px; max-width: 800px; margin: auto; }
+        
+        .lab-match-block { background: #0f172a; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #334155; }
+        .lab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-import { background: #334155; color: var(--primary); border: 1px solid var(--primary); padding: 6px; font-size: 10px; border-radius: 4px; cursor: pointer; margin-bottom: 5px; width: 100%; text-transform: uppercase; font-weight: bold; display: block; text-align: center; }
+        textarea { width: 100%; height: 100px; background: #1e293b; color: white; border: 1px solid #334155; border-radius: 5px; padding: 8px; font-size: 11px; resize: vertical; box-sizing: border-box; }
+        
+        .result-box { background: #1e293b; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid var(--accent-prono); }
+        .score-display { font-size: 20px; font-weight: 900; color: var(--primary); min-width: 50px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div style="font-size: 20px; font-weight: bold;">SMOB PRO V16 <span id="clock" style="font-size:12px; margin-left:10px; color:var(--text-light)"></span></div>
+</header>
+
+<nav class="navbar">
+    <button onclick="UI.loadMatches('Livescore')" style="border: 1px solid var(--accent-live); color: var(--accent-live);">LIVE REFRESH</button>
+    <button onclick="UI.loadMatches('Fixtures')">CALENDRIER</button>
+    <input type="date" id="match-date-input" onchange="UI.loadMatches('Fixtures')">
+    <select id="league-select" onchange="UI.handleFilterChange()"></select>
+    <button onclick="UI.toggleLabMode()" id="lab-toggle-btn">MODE LABO : OFF</button>
+</nav>
+
+<div class="filter-bar" id="filterBar">
+    <button onclick="UI.filterByStatus('ALL')" id="btn-all" style="background: #334155;">TOUS (0)</button>
+    <button onclick="UI.filterByStatus('LIVE')" id="btn-live" style="background: #ef4444;">LIVE (0)</button>
+    <button onclick="UI.filterByStatus('FINISHED')" id="btn-fin" style="background: #10b981;">FINIS (0)</button>
+    <button onclick="UI.filterByStatus('SCHEDULED')" id="btn-sch" style="background: #facc15; color: black;">À VENIR (0)</button>
+</div>
+
+<div id="content"></div>
+
+<div id="coupon-bar">
+    <div id="coupon-count" style="font-weight:bold; color:var(--primary)">0 Matchs</div>
+    <div style="display:flex; gap:10px;">
+        <button class="btn-lab" onclick="UI.openLab()">ANALYSER DANS LE LABO</button>
+        <button onclick="UI.clearCoupon()" style="background:#ef4444; color:white; border:none; padding:10px; border-radius:5px;">X</button>
+    </div>
+</div>
+
+<div id="labModal" class="modal">
+    <div class="modal-content">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="color:var(--primary); margin:0;">LABO IA V16</h2>
+            <button onclick="UI.closeLab()" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&times;</button>
+        </div>
+        <div id="labInputsContainer"></div>
+        <button onclick="Engine.calculate()" style="width:100%; padding:15px; background:var(--accent-prono); color:white; border:none; border-radius:8px; font-weight:bold; margin-top:20px; cursor:pointer;">
+            CALCULER STATS V16
+        </button>
+        <div id="labResult"></div>
+    </div>
+</div>
+
+<script>
+const API_KEY = "4f00e51730cce27b636f89fb68e7e6215a88f2f120e3ccc270da298596e71cfc";
+const BASE_URL = "https://apiv2.allsportsapi.com/football/";
+
+const Engine = {
+    poisson(k, lambda) {
+        const factorial = (n) => (n <= 1 ? 1 : n * factorial(n - 1));
+        return (Math.exp(-lambda) * Math.pow(lambda, k)) / factorial(k);
+    },
+    dixonColes(x, y, lA, lB, rho = 0.12) {
+        if (x === 0 && y === 0) return 1 - (lA * lB * rho);
+        if (x === 0 && y === 1) return 1 + (lA * rho);
+        if (x === 1 && y === 0) return 1 + (lB * rho);
+        if (x === 1 && y === 1) return 1 - rho;
+        return 1;
+    },
+    parseVal(text, key) {
+        const m = text.match(new RegExp(`${key}:\\s*([\\d.]+)`, 'i'));
+        return m ? parseFloat(m[1]) : 0;
+    },
+    parseSmart(text) {
+        const matches = text.split('\n')[0].match(/\d+/g) || [];
+        if (matches.length === 0) return 1.2;
+        const scores = matches.map(s => Math.min(parseFloat(s), 5));
+        let sum = 0, totalWeight = 0;
+        scores.forEach((s, i) => {
+            const w = (i >= scores.length - 3) ? 1.4 : 0.6;
+            sum += s * w; totalWeight += w;
+        });
+        return sum / totalWeight;
+    },
+    calculate() {
+        const resultDiv = document.getElementById("labResult");
+        resultDiv.innerHTML = `<h4 style="color:var(--primary); text-align:center; margin-top:20px;">PRÉVISIONS IA V16</h4>`;
+        UI.coupon.forEach(m => {
+            const rA = document.getElementById(`statsA_${m.id}`).value;
+            const rB = document.getElementById(`statsB_${m.id}`).value;
+            const avgA = this.parseSmart(rA), avgB = this.parseSmart(rB);
+            
+            let winA = 0, winB = 0, draw = 0, btts = 0, over2 = 0, exact = [];
+            for(let i=0; i<6; i++) {
+                for(let j=0; j<6; j++) {
+                    const p = (this.poisson(i, avgA) * this.poisson(j, avgB)) * this.dixonColes(i, j, avgA, avgB);
+                    if(i > j) winA += p; else if(i < j) winB += p; else draw += p;
+                    if(i > 0 && j > 0) btts += p;
+                    if(i + j > 2.5) over2 += p;
+                    exact.push({ s: `${i}-${j}`, p: p });
+                }
+            }
+            exact.sort((a,b) => b.p - a.p);
+            const total = winA + winB + draw;
+
+            resultDiv.innerHTML += `
+                <div class="result-box">
+                    <div style="font-weight:bold; color:var(--primary); border-bottom:1px solid #334155; padding-bottom:5px;">${m.home} vs ${m.away}</div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:8px; font-size:11px;">
+                        <div>
+                            <p><b>PRONOS :</b></p>
+                            <p>1N2: ${Math.round(winA/total*100)}% | ${Math.round(draw/total*100)}% | ${Math.round(winB/total*100)}%</p>
+                            <p>BTTS: <span style="color:var(--primary)">${Math.round(btts*100)}%</span></p>
+                            <p>OVER 2.5: <span style="color:var(--primary)">${Math.round(over2*100)}%</span></p>
+                        </div>
+                        <div>
+                            <p><b>PROJECTIONS :</b></p>
+                            <p>CORNERS: ~${(this.parseVal(rA,'CORN')+this.parseVal(rB,'CORN') || 9.5).toFixed(1)}</p>
+                            <p>FAUTES: ~${(this.parseVal(rA,'FT')+this.parseVal(rB,'FT') || 22).toFixed(1)}</p>
+                            <p>CARTONS: ~${(this.parseVal(rA,'CT')+this.parseVal(rB,'CT') || 4.2).toFixed(1)}</p>
+                        </div>
+                    </div>
+                    <p style="font-size:10px; margin-top:8px;"><b>SCORES EXACTS :</b></p>
+                    <div style="display:flex; gap:5px;">${exact.slice(0,3).map(s => `<span style="background:#0f172a; padding:3px 6px; border-radius:4px; border:1px solid var(--primary); font-size:10px;">${s.s}</span>`).join('')}</div>
+                </div>`;
+        });
+    }
+};
+
+const UI = {
+    coupon: [], allMatches: [], labMode: false,
+    async loadMatches(met) {
+        document.getElementById("content").innerHTML = '<div style="text-align:center; padding:50px;"><i class="fas fa-sync fa-spin fa-2x"></i></div>';
+        const d = document.getElementById("match-date-input").value;
+        let url = `${BASE_URL}?met=${met}&APIkey=${API_KEY}` + (met==='Fixtures' ? `&from=${d}&to=${d}` : '');
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            this.allMatches = data.result || [];
+            this.updateLeagueFilter();
+            this.filterByStatus('ALL');
+        } catch(e) { document.getElementById("content").innerHTML = "Erreur API."; }
+    },
+    updateLeagueFilter() {
+        const s = document.getElementById("league-select");
+        const lg = [...new Set(this.allMatches.map(m => m.league_name))].sort();
+        s.innerHTML = '<option value="ALL">TOUTES LES LIGUES</option>' + lg.map(l => `<option value="${l}">${l.substring(0,20)}</option>`).join('');
+    },
+    filterByStatus(status) {
+        const l = document.getElementById("league-select").value;
+        let f = this.allMatches;
+        if(l !== "ALL") f = f.filter(m => m.league_name === l);
+        
+        const counts = { ALL: f.length, LIVE: 0, FIN: 0, SCH: 0 };
+        f.forEach(m => {
+            const isL = m.event_status && (m.event_status.includes("'") || !isNaN(m.event_status));
+            const isF = m.event_status === "Finished" || (m.event_final_result !== "-" && m.event_status === "");
+            if(isL) counts.LIVE++; else if(isF) counts.FIN++; else counts.SCH++;
+        });
+
+        document.getElementById('btn-all').textContent = `TOUS (${counts.ALL})`;
+        document.getElementById('btn-live').textContent = `LIVE (${counts.LIVE})`;
+        document.getElementById('btn-fin').textContent = `FINIS (${counts.FIN})`;
+        document.getElementById('btn-sch').textContent = `À VENIR (${counts.SCH})`;
+
+        if(status === 'LIVE') f = f.filter(m => m.event_status && (m.event_status.includes("'") || !isNaN(m.event_status)));
+        else if(status === 'FINISHED') f = f.filter(m => m.event_status === "Finished" || (m.event_final_result !== "-" && m.event_status === ""));
+        else if(status === 'SCHEDULED') f = f.filter(m => m.event_status !== "Finished" && !m.event_status.includes("'") && (m.event_final_result === "-" || m.event_final_result === ""));
+        
+        this.render(f);
+    },
+    render(matches) {
+        const cont = document.getElementById("content");
+        cont.innerHTML = "";
+        matches.forEach(m => {
+            const score = (m.event_final_result && m.event_final_result !== "-") ? m.event_final_result : "VS";
+            const isL = m.event_status && (m.event_status.includes("'") || !isNaN(m.event_status));
+            const card = document.createElement("div");
+            card.className = "match-card";
+            card.innerHTML = `
+                <div class="match-status"><span>${m.league_name.substring(0,15)}</span><span>${isL ? '<i class="live-dot"></i>' : ''}${m.event_time}</span></div>
+                <div style="display:flex; align-items:center; justify-content:space-between; font-weight:bold;">
+                    <div style="flex:1; text-align:left;">${m.event_home_team}</div>
+                    <div class="score-display">${score}</div>
+                    <div style="flex:1; text-align:right;">${m.event_away_team}</div>
+                </div>
+                ${this.labMode ? `<button class="btn-add-coupon" onclick="UI.addToCoupon('${m.event_home_team.replace(/'/g," ")}','${m.event_away_team.replace(/'/g," ")}','${m.event_key}')">AJOUTER AU LABO</button>` : ''}`;
+            cont.appendChild(card);
+        });
+    },
+    handleIndividualDoc(event, targetId, teamName) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const lines = e.target.result.split('\n');
+            const search = teamName.toLowerCase().trim();
+            let d = { b:[], x:[], t:[], p:[], c:[], f:[], cr:[] };
+            lines.forEach(line => {
+                const l = line.toLowerCase();
+                if (l.includes(search)) {
+                    const sm = line.match(/(\d+)\s*[:\-]\s*(\d+)/);
+                    if (sm) d.b.push(l.split(/[:\-]/)[0].includes(search) ? sm[1] : sm[2]);
+                    const ex = (re) => (line.match(re) || [null, null])[1];
+                    const tirs = ex(/(\d+)\s*(?:tirs|shots)/i); if(tirs) d.t.push(tirs);
+                    const xg = ex(/(\d+\.\d+)\s*(?:xg)/i); if(xg) d.x.push(xg);
+                    const poss = ex(/(\d+)\s*(?:%|possession)/i); if(poss) d.p.push(poss);
+                    const corn = ex(/(\d+)\s*(?:corners)/i); if(corn) d.c.push(corn);
+                    const ft = ex(/(\d+)\s*(?:fautes|fouls)/i); if(ft) d.f.push(ft);
+                    const ct = ex(/(\d+)\s*(?:cartons|cards)/i); if(ct) d.cr.push(ct);
+                }
+            });
+            const avg = (a) => a.length ? (a.reduce((x,y)=>x+parseFloat(y),0)/a.length).toFixed(1) : "0";
+            document.getElementById(targetId).value = `${d.b.join(' ')}\nMOY:${avg(d.b)}|xG:${avg(d.x)}|TIRS:${avg(d.t)}\nPOSS:${avg(d.p)}%|CORN:${avg(d.c)}|FT:${avg(d.f)}|CT:${avg(d.cr)}`;
+        };
+        reader.readAsText(file);
+    },
+    addToCoupon(home, away, id) { if(!this.coupon.find(x=>x.id===id)){ this.coupon.push({home,away,id}); this.updateCouponUI(); }},
+    updateCouponUI() { document.getElementById("coupon-bar").style.display = this.coupon.length>0?"flex":"none"; document.getElementById("coupon-count").textContent = `${this.coupon.length} Matchs`; },
+    clearCoupon() { this.coupon = []; this.updateCouponUI(); },
+    toggleLabMode() { this.labMode = !this.labMode; document.getElementById('lab-toggle-btn').textContent = this.labMode ? "MODE LABO : ON" : "MODE LABO : OFF"; this.filterByStatus('ALL'); },
+    handleFilterChange() { this.filterByStatus('ALL'); },
+    openLab() {
+        const cont = document.getElementById("labInputsContainer"); cont.innerHTML = "";
+        this.coupon.forEach(m => {
+            cont.innerHTML += `
+                <div class="lab-match-block">
+                    <div style="font-size:11px; color:var(--primary); margin-bottom:10px; font-weight:bold; text-align:center;">${m.home} vs ${m.away}</div>
+                    <div class="lab-grid">
+                        <div><label class="btn-import">DOC ${m.home.substring(0,3)}<input type="file" style="display:none;" onchange="UI.handleIndividualDoc(event,'statsA_${m.id}','${m.home}')"></label><textarea id="statsA_${m.id}"></textarea></div>
+                        <div><label class="btn-import">DOC ${m.away.substring(0,3)}<input type="file" style="display:none;" onchange="UI.handleIndividualDoc(event,'statsB_${m.id}','${m.away}')"></label><textarea id="statsB_${m.id}"></textarea></div>
+                    </div>
+                </div>`;
+        });
+        document.getElementById("labModal").style.display = "block";
+    },
+    closeLab() { document.getElementById("labModal").style.display = "none"; }
+};
+
+window.onload = () => { document.getElementById("match-date-input").value = new Date().toISOString().split('T')[0]; UI.loadMatches('Fixtures'); };
+setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString('fr-FR'); }, 1000);
+</script>
+</body>
+</html>
